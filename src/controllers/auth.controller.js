@@ -60,7 +60,14 @@ export async function loginController(req, res, next) {
 
 export async function logoutController(req, res, next) {
   try {
-    const clearCookieOptions = getTokenCookieOptions();
+    const clearCookieOptions = {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+      ...(process.env.COOKIE_DOMAIN ? { domain: process.env.COOKIE_DOMAIN } : {}),
+    };
+
     res.clearCookie('token', clearCookieOptions);
 
     res.json({ ok: true, message: 'Sesión cerrada exitosamente' });
