@@ -1,5 +1,32 @@
 import * as authService from '../services/auth.service.js';
 
+function isProductionEnv() {
+  return (
+    process.env.NODE_ENV === 'production' ||
+    process.env.COOKIE_SECURE === 'true' ||
+    (typeof process.env.FRONTEND_URL === 'string' && /^https:\/\//i.test(process.env.FRONTEND_URL))
+  );
+}
+
+export function getTokenCookieOptions(extraOptions = {}) {
+  const isProduction = isProductionEnv();
+  const cookieDomain = process.env.COOKIE_DOMAIN;
+
+  const options = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax',
+    path: '/',
+    ...extraOptions,
+  };
+
+  if (cookieDomain) {
+    options.domain = cookieDomain;
+  }
+
+  return options;
+}
+
 export async function registerController(req, res, next) {
   try {
     const user = await authService.register(req.body.email, req.body.password);
@@ -17,19 +44,14 @@ export async function loginController(req, res, next) {
   try {
     const data = await authService.login(req.body.email, req.body.password);
 
-    res.cookie('token', data.token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      path: '/',
+    res.cookie('token', data.token, getTokenCookieOptions({
       maxAge: 24 * 60 * 60 * 1000,
-    });
+    }));
 
     res.json({
       ok: true,
       user: data.user,
       data,
-      token: data.token,
     });
   } catch (error) {
     next(error);
@@ -38,13 +60,8 @@ export async function loginController(req, res, next) {
 
 export async function logoutController(req, res, next) {
   try {
-    res.clearCookie('token', {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      path: '/',
-      maxAge: 0,
-    });
+    const clearCookieOptions = getTokenCookieOptions();
+    res.clearCookie('token', clearCookieOptions);
 
     res.json({ ok: true, message: 'Sesión cerrada exitosamente' });
   } catch (error) {

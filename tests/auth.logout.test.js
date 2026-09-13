@@ -1,27 +1,47 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { logoutController } from '../src/controllers/auth.controller.js';
+import { getTokenCookieOptions } from '../src/controllers/auth.controller.js';
 
-test('logout clears the auth cookie using the same path as the login cookie', async () => {
-  let clearCookieOptions;
+test('cookie settings are consistent between login and logout without NODE_ENV in .env', () => {
+  const originalEnv = process.env.NODE_ENV;
+  const originalDomain = process.env.COOKIE_DOMAIN;
+  const originalSecure = process.env.COOKIE_SECURE;
+  const originalFrontendUrl = process.env.FRONTEND_URL;
 
-  const req = {};
-  const res = {
-    clearCookie(name, options) {
-      clearCookieOptions = { name, options };
-    },
-    json(payload) {
-      this.payload = payload;
-    },
-  };
+  delete process.env.NODE_ENV;
+  process.env.COOKIE_SECURE = 'true';
+  process.env.COOKIE_DOMAIN = 'example.com';
+  process.env.FRONTEND_URL = 'https://app.example.com';
 
-  await logoutController(req, res, () => {
-    throw new Error('next should not be called');
-  });
+  try {
+    const loginOptions = getTokenCookieOptions({ maxAge: 24 * 60 * 60 * 1000 });
+    const logoutOptions = getTokenCookieOptions();
 
-  assert.equal(res.payload.ok, true);
-  assert.equal(clearCookieOptions.name, 'token');
-  assert.equal(clearCookieOptions.options.path, '/');
-  assert.equal(clearCookieOptions.options.maxAge, 0);
+    assert.equal(loginOptions.httpOnly, true);
+    assert.equal(loginOptions.secure, true);
+    assert.equal(loginOptions.sameSite, 'none');
+    assert.equal(loginOptions.path, '/');
+    assert.equal(loginOptions.domain, 'example.com');
+    assert.equal(loginOptions.maxAge, 24 * 60 * 60 * 1000);
+
+    assert.equal(logoutOptions.httpOnly, true);
+    assert.equal(logoutOptions.secure, true);
+    assert.equal(logoutOptions.sameSite, 'none');
+    assert.equal(logoutOptions.path, '/');
+    assert.equal(logoutOptions.domain, 'example.com');
+    assert.equal(logoutOptions.maxAge, undefined);
+  } finally {
+    if (originalEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = originalEnv;
+
+    if (originalSecure === undefined) delete process.env.COOKIE_SECURE;
+    else process.env.COOKIE_SECURE = originalSecure;
+
+    if (originalDomain === undefined) delete process.env.COOKIE_DOMAIN;
+    else process.env.COOKIE_DOMAIN = originalDomain;
+
+    if (originalFrontendUrl === undefined) delete process.env.FRONTEND_URL;
+    else process.env.FRONTEND_URL = originalFrontendUrl;
+  }
 });
