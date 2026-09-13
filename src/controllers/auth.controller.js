@@ -21,6 +21,7 @@ export async function loginController(req, res, next) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
       maxAge: 24 * 60 * 60 * 1000,
     });
 
@@ -41,6 +42,8 @@ export async function logoutController(req, res, next) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      path: '/',
+      maxAge: 0,
     });
 
     res.json({ ok: true, message: 'Sesión cerrada exitosamente' });
